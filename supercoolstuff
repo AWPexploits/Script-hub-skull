@@ -110,7 +110,7 @@ local function checkForSillyEgg()
                 break
             else
                 print("Retry #" .. attempt .. " failed. Waiting...")
-                task.wait(0.01)
+                task.wait(0.05)
             end
         end
     end
