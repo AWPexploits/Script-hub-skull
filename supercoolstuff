@@ -9,14 +9,17 @@ local JobId = game.JobId
 
 local WebhookURL = "https://discord.com/api/webhooks/1367992741375643721/CITgXfhkeFZC4Q1k832QIPbAj3_rM4Tl81ZqR-u164g5ccZCsC00UA7uLItyJKR0Cs9J"
 
+-- Supported HTTP request
 local requestFunc = (syn and syn.request) or http_request or request or (fluxus and fluxus.request) or httprequest
 
+-- Auto-restart script on teleport
 if queue_on_teleport then
     queue_on_teleport([[
-        loadstring(game:HttpGet("https://pastebin.com/raw/YOUR_PASTE_ID"))()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/AWPexploits/Script-hub-skull/refs/heads/main/supercoolstuff"))()
     ]])
 end
 
+-- Background task to dismiss full server error prompt
 task.spawn(function()
     while true do
         local prompt = CoreGui:FindFirstChild("ErrorPrompt", true)
@@ -33,6 +36,7 @@ task.spawn(function()
     end
 end)
 
+-- Send Discord webhook
 local function sendWebhook(message)
     if not requestFunc then return end
     pcall(function()
@@ -45,6 +49,7 @@ local function sendWebhook(message)
     end)
 end
 
+-- Server hop function
 local function hopToNewServer()
     if not requestFunc then return false end
 
@@ -77,6 +82,7 @@ local function hopToNewServer()
     return false
 end
 
+-- Silly egg check
 local function checkForSillyEgg()
     task.wait(5.75)
 
@@ -97,16 +103,18 @@ local function checkForSillyEgg()
         end
         sendWebhook(msg)
 
+        -- Retry hopping
         for attempt = 1, 10000 do
             if hopToNewServer() then
                 print("Hopped to a new server.")
                 break
             else
                 print("Retry #" .. attempt .. " failed. Waiting...")
-                task.wait(0.25)
+                task.wait(0.01)
             end
         end
     end
 end
 
+-- Start
 checkForSillyEgg()
