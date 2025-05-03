@@ -1,112 +1,112 @@
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
-
-task.wait(5.75)
 
 local PlaceId = game.PlaceId
 local JobId = game.JobId
-local WebhookURL = "https://discord.com/api/webhooks/1367992741375643721/CITgXfhkeFZC4Q1k832QIPbAj3_rM4Tl81ZqR-u164g5ccZCsC00UA7uLItyJKR0Cs9J" -- Replace with your actual webhook URL
+
+local WebhookURL = "https://discord.com/api/webhooks/1367992741375643721/CITgXfhkeFZC4Q1k832QIPbAj3_rM4Tl81ZqR-u164g5ccZCsC00UA7uLItyJKR0Cs9J"
 
 local requestFunc = (syn and syn.request) or http_request or request or (fluxus and fluxus.request) or httprequest
 
-local function sendWebhook(message)
-	if not requestFunc then
-		warn("No supported HTTP request function found.")
-		return
-	end
+if queue_on_teleport then
+    queue_on_teleport([[
+        loadstring(game:HttpGet("https://pastebin.com/raw/YOUR_PASTE_ID"))()
+    ]])
+end
 
-	requestFunc({
-		Url = WebhookURL,
-		Method = "POST",
-		Headers = {
-			["Content-Type"] = "application/json"
-		},
-		Body = HttpService:JSONEncode({ content = message })
-	})
+task.spawn(function()
+    while true do
+        local prompt = CoreGui:FindFirstChild("ErrorPrompt", true)
+        if prompt and prompt:IsA("Frame") then
+            local okBtn = prompt:FindFirstChild("OK", true)
+            if okBtn then
+                pcall(function()
+                    okBtn.MouseButton1Click:Fire()
+                    print("Dismissed 'Requested experience full' prompt.")
+                end)
+            end
+        end
+        task.wait(0.25)
+    end
+end)
+
+local function sendWebhook(message)
+    if not requestFunc then return end
+    pcall(function()
+        requestFunc({
+            Url = WebhookURL,
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = HttpService:JSONEncode({ content = message })
+        })
+    end)
 end
 
 local function hopToNewServer()
-	if not requestFunc then
-		warn("Incompatible exploit: missing HTTP request function")
-		return
-	end
+    if not requestFunc then return false end
 
-	local servers = {}
-	local url = string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true", PlaceId)
-	local success, result = pcall(function()
-		return requestFunc({ Url = url })
-	end)
+    local url = string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true", PlaceId)
+    local success, result = pcall(function()
+        return requestFunc({ Url = url })
+    end)
 
-	if success and result and result.Body then
-		local body = HttpService:JSONDecode(result.Body)
-		if body and body.data then
-			for _, v in next, body.data do
-				local playing = tonumber(v.playing)
-				local maxPlayers = tonumber(v.maxPlayers)
-				local serverId = v.id
-				if playing and maxPlayers and serverId and serverId ~= JobId and playing < maxPlayers then
-					table.insert(servers, serverId)
-				end
-			end
-		end
-	end
+    if not (success and result and result.Body) then return false end
 
-	if #servers > 0 then
-		local targetServer = servers[math.random(1, #servers)]
-		TeleportService:TeleportToPlaceInstance(PlaceId, targetServer, LocalPlayer)
-		return true -- Successfully teleporting to a server
-	else
-		warn("No suitable servers found (max players not exceeded).")
-		return false
-	end
+    local data = HttpService:JSONDecode(result.Body)
+    local servers = {}
+
+    for _, v in ipairs(data.data or {}) do
+        if v.id ~= JobId and v.playing < v.maxPlayers then
+            table.insert(servers, v.id)
+        end
+    end
+
+    if #servers > 0 then
+        local target = servers[math.random(1, #servers)]
+        local ok, err = pcall(function()
+            TeleportService:TeleportToPlaceInstance(PlaceId, target, LocalPlayer)
+        end)
+        if ok then return true else warn("Teleport failed:", err) end
+    else
+        warn("No suitable servers found.")
+    end
+
+    return false
 end
 
-local rifts = workspace:FindFirstChild("Rendered")
-	and workspace.Rendered:FindFirstChild("Rifts")
+local function checkForSillyEgg()
+    task.wait(5.75)
 
-local sillyEgg = rifts and rifts:FindFirstChild("silly-egg")
+    local rifts = workspace:FindFirstChild("Rendered") and workspace.Rendered:FindFirstChild("Rifts")
+    local sillyEgg = rifts and rifts:FindFirstChild("silly-egg")
 
-if sillyEgg then
-	-- Ping everyone in the Discord server when the silly-egg is found
-	local message = "@everyone 🪺 silly-egg found!\nPlaceId: " .. PlaceId .. "\nJobId: " .. JobId
-	sendWebhook(message)
-else
-	local childNames = "❌ silly-egg NOT found.\nPlaceId: " .. PlaceId .. "\nJobId: " .. JobId .. "\nRifts Children:\n"
-	if rifts then
-		for _, child in ipairs(rifts:GetChildren()) do
-			childNames = childNames .. "- " .. child.Name .. "\n"
-		end
-	else
-		childNames = childNames .. "(Rifts folder missing)"
-	end
+    if sillyEgg then
+        local msg = "@everyone 🪺 silly-egg found!\nPlaceId: " .. PlaceId .. "\nJobId: " .. JobId
+        sendWebhook(msg)
+    else
+        local msg = "❌ silly-egg NOT found.\nPlaceId: " .. PlaceId .. "\nJobId: " .. JobId .. "\nRifts Children:\n"
+        if rifts then
+            for _, child in ipairs(rifts:GetChildren()) do
+                msg = msg .. "- " .. child.Name .. "\n"
+            end
+        else
+            msg = msg .. "(Rifts folder missing)"
+        end
+        sendWebhook(msg)
 
-	sendWebhook(childNames)
-
-	-- Retry logic for full server (click "OK" on the prompt)
-	while true do
-		local success = hopToNewServer()
-		if success then
-			-- Wait for 5 seconds before retrying if the server is full or we didn't find a server
-			task.wait(5)
-		else
-			-- Check for "Requested experience full" message and simulate OK click
-			if syn and syn.protect_gui then
-				-- Assuming a method like syn.protect_gui exists in your environment, or other exploits allow interaction
-				local prompt = game:GetService("CoreGui"):FindFirstChild("ErrorPrompt")
-				if prompt and prompt:IsA("Frame") then
-					local okButton = prompt:FindFirstChild("OK")
-					if okButton then
-						-- Simulate click on the OK button to dismiss the prompt
-						okButton.MouseButton1Click:Fire()
-						print("Clicked OK on 'Requested experience full' prompt.")
-						task.wait(1) -- Wait a bit to allow the dialog to close
-					end
-				end
-			end
-			-- Try again after handling the dialog
-			task.wait(2)
-		end
-	end
+        for attempt = 1, 10000 do
+            if hopToNewServer() then
+                print("Hopped to a new server.")
+                break
+            else
+                print("Retry #" .. attempt .. " failed. Waiting...")
+                task.wait(0.25)
+            end
+        end
+    end
 end
+
+checkForSillyEgg()
